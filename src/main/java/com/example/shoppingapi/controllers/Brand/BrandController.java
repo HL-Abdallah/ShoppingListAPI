@@ -1,14 +1,21 @@
 package com.example.shoppingapi.controllers.Brand;
 
-import com.example.shoppingapi.ViewModels.CreateBrandRequestViewModel;
-import com.example.shoppingapi.ViewModels.ReplaceBrandRequestViewModel;
+import com.example.shoppingapi.DTOs.CreateBrandRequestRecord;
+import com.example.shoppingapi.DTOs.ReplaceBrandRequestRecord;
 import com.example.shoppingapi.models.Brand;
+import com.example.shoppingapi.models.Item;
 import com.example.shoppingapi.repositories.BrandRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
-@RequestMapping("API/v1/Brand")
+@RequestMapping("api/v1/brand")
 @RestController
 public class BrandController {
 
@@ -19,43 +26,64 @@ public class BrandController {
     }
 
 
-    @GetMapping("/all")
-    public List<Brand> all() {
-        return repository.findAll();
+    @GetMapping()
+    ResponseEntity<List<Brand>> all() {
+        return ResponseEntity.ok(repository.findAll());
     }
 
-    @PostMapping("/create")
-    public Brand create(@RequestBody CreateBrandRequestViewModel model){
+    @GetMapping("/page")
+    ResponseEntity<Page<Brand>> findPaginated(@RequestParam("page") int page , @RequestParam("size") int size) {
+        return ResponseEntity.ok(repository.findAll(PageRequest.of(page,size)));
+    }
 
-        var newBrand = new Brand(model.name);
-        return repository.save(newBrand);
+    //replace class with record
+    @PostMapping()
+    ResponseEntity<Brand> create(@RequestBody CreateBrandRequestRecord model){
+
+        var newBrand = new Brand();
+        newBrand.name = model.name();
+        var savedBrand = repository.save(newBrand);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(savedBrand.id)
+                .toUri();
+
+        return ResponseEntity.created(location).body(savedBrand);
     }
 
     @GetMapping("/{id}")
-    Brand one(@PathVariable Long id) {
+    ResponseEntity<Optional<Brand>> one(@PathVariable Long id) {
+        // remove exception
+        // voire controller advice
+        var brand = repository.findById(id);
 
-        var exceptionMessage = String.format(""" 
-                Brand with id:%s not found
-                """, id);
-        return repository.findById(id).orElseThrow(() -> new RuntimeException(exceptionMessage));
+        if (brand.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(brand);
     }
 
     @DeleteMapping("/{id}")
-    void delete(@PathVariable Long id) {
-        repository.deleteById(id);
+    ResponseEntity<?> delete(@PathVariable Long id) {
+        Optional<Brand> existingBrand = repository.findById(id);
+        if(existingBrand.isPresent()){
+            repository.delete(existingBrand.get());
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PutMapping("/{id}")
-    Brand replace(@RequestBody ReplaceBrandRequestViewModel newBrand, @PathVariable Long id) {
-
-        var exceptionMessage = String.format(""" 
-                Brand with id:%s not found
-                """, id);
-
-        var dbBrand = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException(exceptionMessage));
-
-        dbBrand.setName(newBrand.name);
-        return repository.save(dbBrand);
+    ResponseEntity<Brand> replace(@RequestBody ReplaceBrandRequestRecord newBrand, @PathVariable Long id) {
+        //see about (map struct, model mapper)
+        try {
+            var dbBrand = repository.findById(id).orElseThrow();
+            dbBrand.name = newBrand.name();
+            return ResponseEntity.ok(repository.save(dbBrand));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

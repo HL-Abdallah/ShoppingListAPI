@@ -1,16 +1,21 @@
 package com.example.shoppingapi.controllers.Brand;
 
-import com.example.shoppingapi.ViewModels.CreateBrandRequestViewModel;
-import com.example.shoppingapi.ViewModels.CreateItemRequestViewModel;
-import com.example.shoppingapi.ViewModels.ReplaceBrandRequestViewModel;
-import com.example.shoppingapi.ViewModels.ReplaceItemRequestViewModel;
+import com.example.shoppingapi.DTOs.CreateItemRequestRecord;
+import com.example.shoppingapi.DTOs.ReplaceItemRequestRecord;
 import com.example.shoppingapi.models.Brand;
 import com.example.shoppingapi.models.Item;
+import com.example.shoppingapi.models.Person;
 import com.example.shoppingapi.repositories.BrandRepository;
 import com.example.shoppingapi.repositories.ItemRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 @RequestMapping("API/v1/Item")
 @RestController
@@ -25,60 +30,82 @@ public class ItemController {
     }
 
 
-    @GetMapping("/all")
+    @GetMapping("")
     public List<Item> all() {
         return repository.findAll();
     }
 
-    @PostMapping("/create")
-    public Item create(@RequestBody CreateItemRequestViewModel model){
+    @GetMapping("/page")
+    public Page<Item> findPaginated(@RequestParam("page") int page , @RequestParam("size") int size) {
+        return repository.findAll(PageRequest.of(page,size));
+    }
 
-        var exceptionMessage = String.format(""" 
-                Brand with id:%s not found
-                """, model.brandId);
+    @PostMapping("")
+    public ResponseEntity<Item> create(@RequestBody CreateItemRequestRecord model){
 
-        var brand = brandRepository.findById(model.brandId)
-                .orElseThrow(() -> new RuntimeException(exceptionMessage));
+        try {
+            var brand = brandRepository.findById(model.brandId())
+                    .orElseThrow();
 
-        var newItem = new Item(model.name, model.price, model.calories, brand);
-        return repository.save(newItem);
+            var newItem = new Item();
+
+            newItem.name = model.name();
+            newItem.brand = brand;
+            newItem.price = model.price();
+            newItem.calories = model.calories();
+
+            var savedItem = repository.save(newItem);
+
+            URI location = ServletUriComponentsBuilder
+                    .fromCurrentRequest()
+                    .path("/{id}")
+                    .buildAndExpand(savedItem.id)
+                    .toUri();
+
+            return ResponseEntity.created(location).body(savedItem);
+
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/{id}")
-    Item one(@PathVariable Long id) {
+    ResponseEntity<Optional<Item>> one(@PathVariable Long id) {
 
-        var exceptionMessage = String.format(""" 
-                Item with id:%s not found
-                """, id);
-        return repository.findById(id).orElseThrow(() -> new RuntimeException(exceptionMessage));
+        var item = repository.findById(id);
+
+        if (item.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(item);
     }
 
     @DeleteMapping("/{id}")
-    void delete(@PathVariable Long id) {
-        repository.deleteById(id);
+    ResponseEntity<?> delete(@PathVariable Long id) {
+        Optional<Item> existingItem = repository.findById(id);
+        if(existingItem.isPresent()){
+            repository.delete(existingItem.get());
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PutMapping("/{id}")
-    Item replace(@RequestBody ReplaceItemRequestViewModel newItem, @PathVariable Long id) {
+    ResponseEntity<Item> replace(@RequestBody ReplaceItemRequestRecord newItem, @PathVariable Long id) {
 
-        var exceptionMessage = String.format(""" 
-                Item with id:%s not found
-                """, id);
-        var brandExceptionMessage = String.format(""" 
-                Brand with id:%s not found
-                """, newItem.brandId);
+        try {
+            var brand = brandRepository.findById(newItem.brandId())
+                    .orElseThrow();
 
-        var brand = brandRepository.findById(newItem.brandId)
-                .orElseThrow(() -> new RuntimeException(brandExceptionMessage));
+            var dbItem = repository.findById(id).orElseThrow();
+            dbItem.name = newItem.name();
+            dbItem.brand = brand;
+            dbItem.price = newItem.price();
+            dbItem.calories = newItem.calories();
 
-        var dbItem = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException(exceptionMessage));
-
-        dbItem.setName(newItem.name);
-        dbItem.setBrand(brand);
-        dbItem.setPrice(newItem.price);
-        dbItem.setCalories(newItem.calories);
-
-        return repository.save(dbItem);
+            return ResponseEntity.ok(repository.save(dbItem));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

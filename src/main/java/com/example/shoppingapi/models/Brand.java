@@ -1,9 +1,7 @@
 package com.example.shoppingapi.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 
 @Entity
@@ -15,25 +13,7 @@ public class Brand {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    long id;
+    public long id;
 
-
-    private String name;
-
-    public Brand (String name){
-        this.name = name;
-    }
-
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return this.name;
-    }
-
-    public Long getId() {
-        return this.id;
-    }
+    public String name;
 }

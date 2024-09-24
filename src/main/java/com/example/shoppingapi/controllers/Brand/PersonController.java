@@ -1,12 +1,17 @@
 package com.example.shoppingapi.controllers.Brand;
 
-import com.example.shoppingapi.ViewModels.CreatePersonRequestViewModel;
-import com.example.shoppingapi.ViewModels.ReplacePersonRequestViewModel;
+import com.example.shoppingapi.DTOs.CreatePersonRequestRecord;
+import com.example.shoppingapi.DTOs.ReplacePersonRequestRecord;
 import com.example.shoppingapi.models.Person;
 import com.example.shoppingapi.repositories.PersonRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 @RequestMapping("API/v1/Person")
 @RestController
@@ -17,47 +22,72 @@ public class PersonController {
         this.repository = repository;
     }
 
-    @GetMapping("/all")
+    @GetMapping("")
     public List<Person> all() {
         return repository.findAll();
     }
 
-    @PostMapping("/create")
-    public Person create(@RequestBody CreatePersonRequestViewModel model) {
+    @GetMapping("/page")
+    public Page<Person> findPaginated(@RequestParam("page") int page , @RequestParam("size") int size) {
+        return repository.findAll(PageRequest.of(page,size));
+    }
 
-        var newPerson = new Person(model.firstName, model.lastName, model.dateOfBirth, model.email);
-        return repository.save(newPerson);
+    @PostMapping("")
+    public ResponseEntity<Person> create(@RequestBody CreatePersonRequestRecord model) {
+
+        var newPerson = new Person();
+
+        newPerson.email = model.email();
+        newPerson.dateOfBirth = model.dateOfBirth();
+        newPerson.firstName = model.firstName();
+        newPerson.lastName = model.lastName();
+
+        var savedPerson = repository.save(newPerson);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(savedPerson.id)
+                .toUri();
+
+        return ResponseEntity.created(location).body(savedPerson);
     }
 
     @GetMapping("/{id}")
-    Person one(@PathVariable Long id) {
+    ResponseEntity<Optional<Person>> one(@PathVariable Long id) {
 
-        var exceptionMessage = String.format(""" 
-                Person with id:%s not found
-                """, id);
-        return repository.findById(id).orElseThrow(() -> new RuntimeException(exceptionMessage));
+        var person = repository.findById(id);
+
+        if (person.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(person);
     }
 
     @DeleteMapping("/{id}")
-    void delete(@PathVariable Long id) {
-        repository.deleteById(id);
+    ResponseEntity<?> delete(@PathVariable Long id) {
+
+        Optional<Person> existingPerson = repository.findById(id);
+        if(existingPerson.isPresent()){
+            repository.delete(existingPerson.get());
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PutMapping("/{id}")
-    Person replace(@RequestBody ReplacePersonRequestViewModel newPerson, @PathVariable Long id) {
+    ResponseEntity<Person> replace(@RequestBody ReplacePersonRequestRecord newPerson, @PathVariable Long id) {
 
-        var exceptionMessage = String.format(""" 
-                Person with id:%s not found
-                """, id);
+        try {
+            var dbPerson = repository.findById(id).orElseThrow();
+            dbPerson.email = newPerson.email();
+            dbPerson.dateOfBirth = newPerson.dateOfBirth();
+            dbPerson.firstName = newPerson.firstName();
+            dbPerson.lastName = newPerson.lastName();
 
-        var dbPerson = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException(exceptionMessage));
-
-        dbPerson.setEmail(newPerson.email);
-        dbPerson.setDateOfBirth(newPerson.dateOfBirth);
-        dbPerson.setFirstName(newPerson.firstName);
-        dbPerson.setLastName(newPerson.lastName);
-
-        return repository.save(dbPerson);
+            return ResponseEntity.ok(repository.save(dbPerson));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

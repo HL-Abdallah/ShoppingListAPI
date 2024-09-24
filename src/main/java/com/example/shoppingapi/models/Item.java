@@ -14,57 +14,18 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Table(name = "Item")
 public class Item {
-    public Item (String name, Long price, Long calories, Brand brand){
-        this.name = name;
-        this.price = price;
-        this.calories = calories;
-        this.brand = brand;
-    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    public Long id;
 
-    private String name;
+    public String name;
 
-    private Long price;
+    public Long price;
 
-    private Long calories;
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return this.name;
-    }
-
-    public Long getPrice() {
-        return this.price;
-    }
-
-    public void setPrice(Long price) {
-        this.price = price;
-    }
-
-    public Long getCalories() {
-        return this.calories;
-    }
-
-    public void setCalories(Long calories) {
-        this.calories = calories;
-    }
-
-
-    public Long getId() {
-        return this.id;
-    }
+    public Long calories;
 
     @ManyToOne
-    Brand brand;
-
-    public void setBrand(Brand brand) {
-        this.brand = brand;
-    }
+    public Brand brand;
 
 }
