@@ -21,13 +21,6 @@ pipeline {
                 }
             }
         }
-        stage('Docker Login') {
-            steps {
-                script {
-                    // sh 'echo $REGISTRY_CREDENTIALS_PSW | docker login -u $REGISTRY_CREDENTIALS_USR --password-stdin'
-                }
-            }
-        }
         // stage('Push Docker Image') { steps { sh 'docker push ${DOCKER_IMAGE}:${APP_VERSION}' } }
         // stage('Deploy') { steps { echo "Deploying Docker Image: ${DOCKER_IMAGE}:${APP_VERSION}" } }
     }
