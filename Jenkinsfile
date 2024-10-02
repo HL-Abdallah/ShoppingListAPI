@@ -9,15 +9,16 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') { steps { checkout scm } }
+
         stage('Build') { steps { sh 'echo "building .."' } }
         stage('Test') { steps { sh 'echo "testing .."'  } }
-        stage('Build Docker Image') {
+        stage('Logger stage') {
             steps {
                 script {
 //                     sh 'cp target/*.jar app.jar'
 //                     sh 'docker build -t ${DOCKER_IMAGE}:${APP_VERSION} .'
                     sh "echo 'hello'"
+                    sh "echo "
                 }
             }
         }
